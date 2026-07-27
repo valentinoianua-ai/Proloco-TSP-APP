@@ -30,7 +30,10 @@ OPERATORI_PIN = {
     "Marco Monti": "1008",
     "Bar La Torre": "1009",
     "Bar Antonia": "1010",
-    "Circolo Villa Zara": "1011"
+    "Circolo Villa Zara": "1011",
+    "Alessandro Marinelli": "1012",
+    "Gianfilippo Pennesi": "1013",
+    "Paolo Coriolani": "1014"
 }
 
 # Connessione a Google Sheets
