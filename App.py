@@ -18,19 +18,20 @@ PREZZO_BAMBINO = 25
 CAPARRA_ADULTO = 30
 CAPARRA_BAMBINO = 15
 
-LISTA_OPERATORI = [
-    "Alimentari Ribichini Coal",
-    "Alimentari Villa Zara",
-    "Proloco TSP",
-    "Luigi Croceri",
-    "Andrea Mazzoni",
-    "Valentino Ianua'",
-    "Valentino Seri",
-    "Marco Monti",
-    "Bar La Torre",
-    "Bar Antonia",
-    "Circolo Villa Zara"
-]
+# Dizionario Operatori e relativi PIN di accesso
+OPERATORI_PIN = {
+    "Alimentari Ribichini Coal": "1011",
+    "Alimentari Villa Zara": "2012",
+    "Proloco TSP": "0000",
+    "Luigi Croceri": "1004",
+    "Andrea Mazzoni": "1005",
+    "Valentino Ianua'": "1006",
+    "Valentino Seri": "1007",
+    "Marco Monti": "1008",
+    "Bar La Torre": "1009",
+    "Bar Antonia": "1010",
+    "Circolo Villa Zara": "1011"
+}
 
 # Connessione a Google Sheets
 conn = st.connection("gsheets", type=GSheetsConnection)
@@ -46,7 +47,7 @@ if not st.session_state.logged_in:
     st.subheader("Cassa & Prenotazioni Cene")
     
     with st.form("login_form"):
-        operatore_sel = st.selectbox("Seleziona Operatore / Esercente", [""] + LISTA_OPERATORI)
+        operatore_sel = st.selectbox("Seleziona Operatore / Esercente", [""] + list(OPERATORI_PIN.keys()))
         pin_sel = st.text_input("PIN di Accesso", type="password")
         btn_login = st.form_submit_button("Accedi alla Cassa", use_container_width=True)
         
@@ -55,6 +56,8 @@ if not st.session_state.logged_in:
                 st.error("Seleziona un operatore prima di continuare.")
             elif not pin_sel:
                 st.error("Inserisci il PIN di accesso.")
+            elif OPERATORI_PIN.get(operatore_sel) != pin_sel.strip():
+                st.error("PIN errato per l'operatore selezionato!")
             else:
                 st.session_state.logged_in = True
                 st.session_state.operatore = operatore_sel
