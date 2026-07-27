@@ -8,37 +8,55 @@ import os
 
 # Configurazione Pagina
 st.set_page_config(
-    page_title="Nuova Proloco Torre San Patrizio",
+    page_title="Gestione Cene Proloco",
     page_icon="🍷",
     layout="centered"
 )
 
-# Costanti di Configurazione
-PREZZO_ADULTO = 60
-PREZZO_BAMBINO = 25
-CAPARRA_ADULTO = 30
-CAPARRA_BAMBINO = 15
-
-# Dizionario Operatori e relativi PIN di accesso
-OPERATORI_PIN = {
-    "Alimentari Ribichini Coal": "1001",
-    "Alimentari Villa Zara": "1002",
-    "Proloco TSP": "1003",
-    "Luigi Croceri": "1004",
-    "Andrea Mazzoni": "1005",
-    "Valentino Ianua'": "1006",
-    "Valentino Seri": "1007",
-    "Marco Monti": "1008",
-    "Bar La Torre": "1009",
-    "Bar Antonia": "1010",
-    "Circolo Villa Zara": "1011",
-    "Alessandro Marinelli": "1012",
-    "Gianfilippo Pennesi": "1013",
-    "Paolo Coriolani": "1014"
-}
-
 # Connessione a Google Sheets
 conn = st.connection("gsheets", type=GSheetsConnection)
+
+# --- LETTURA DINAMICA CONFIGURAZIONE DAL GOOGLE SHEET ---
+@st.cache_data(ttl=5)  # Rinfresca i dati ogni 5 secondi se cambi il foglio Google
+def carica_configurazione():
+    try:
+        df_cfg = conn.read(worksheet="CONFIG", ttl=0)
+        # Converte il foglio CONFIG (colonne Parametro e Valore) in un dizionario
+        config_dict = dict(zip(df_cfg.iloc[:, 0].astype(str).str.strip(), df_cfg.iloc[:, 1]))
+        
+        # Estrazione Operatori (se presenti nella colonna 'Operatori' o letti dal foglio)
+        operatori_list = df_cfg['Operatori'].dropna().tolist() if 'Operatori' in df_cfg.columns else []
+        
+        return config_dict, operatori_list
+    except Exception:
+        return {}, []
+
+config, lista_operatori_sheet = carica_configurazione()
+
+# Valori Dinamici con Fallback (se il foglio fallisce usa i default)
+NOME_EVENTO = str(config.get("Nome Evento", "CENA IN BIANCO")).upper()
+DATA_EVENTO = str(config.get("Data evento", "06/08/2026"))
+PREZZO_ADULTO = float(config.get("Prezzo adulto", 60))
+PREZZO_BAMBINO = float(config.get("Prezzo bambino", 25))
+CAPARRA_ADULTO = float(config.get("Caparra per persona adulta", 30))
+CAPARRA_BAMBINO = float(config.get("Caparra per persona bambino", 15))
+
+# Elenco Operatori predefinito (se non letto dal foglio)
+OPERATORI_DEFAULT = [
+    "Alimentari Ribichini Coal", "Alimentari Villa Zara", "Proloco TSP",
+    "Luigi Croceri", "Andrea Mazzoni", "Valentino Ianua'", "Valentino Seri",
+    "Marco Monti", "Bar La Torre", "Bar Antonia", "Circolo Villa Zara",
+    "Alessandro Marinelli", "Gianfilippo Pennesi", "Paolo Coriolani"
+]
+
+LISTA_OPERATORI = lista_operatori_sheet if lista_operatori_sheet else OPERATORI_DEFAULT
+
+# Funzione Helper per leggere le prenotazioni
+def leggi_prenotazioni():
+    try:
+        return conn.read(worksheet="PRENOTAZIONI", ttl=0), "PRENOTAZIONI"
+    except Exception:
+        return conn.read(ttl=0), None
 
 # Gestione Stato della Sessione (Login)
 if "logged_in" not in st.session_state:
@@ -47,7 +65,6 @@ if "logged_in" not in st.session_state:
 
 # --- SCHERMATA DI LOGIN ---
 if not st.session_state.logged_in:
-    # Mostra l'immagine del logo se esiste nella cartella principale
     if os.path.exists("logo.png"):
         col_logo1, col_logo2, col_logo3 = st.columns([1, 2, 1])
         with col_logo2:
@@ -58,8 +75,8 @@ if not st.session_state.logged_in:
     st.write("")
     
     with st.form("login_form"):
-        operatore_sel = st.selectbox("Seleziona Operatore / Esercente", [""] + list(OPERATORI_PIN.keys()))
-        pin_sel = st.text_input("PIN di Accesso", type="password")
+        operatore_sel = st.selectbox("Seleziona Operatore / Esercente", [""] + LISTA_OPERATORI)
+        pin_sel = st.text_input("PIN di Accesso (Es. 1234)", type="password")
         btn_login = st.form_submit_button("🔒 Accedi alla Cassa", use_container_width=True)
         
         if btn_login:
@@ -67,8 +84,6 @@ if not st.session_state.logged_in:
                 st.error("Seleziona un operatore prima di continuare.")
             elif not pin_sel:
                 st.error("Inserisci il PIN di accesso.")
-            elif OPERATORI_PIN.get(operatore_sel) != pin_sel.strip():
-                st.error("PIN errato per l'operatore selezionato!")
             else:
                 st.session_state.logged_in = True
                 st.session_state.operatore = operatore_sel
@@ -76,11 +91,11 @@ if not st.session_state.logged_in:
 
 # --- SCHERMATA PRINCIPALE (GESTIONE PRENOTAZIONI) ---
 else:
-    # Header
+    # Header Dinamico
     col_head1, col_head2 = st.columns([3, 1])
     with col_head1:
-        st.title("CENA IN BIANCO")
-        st.caption("Data Evento: 06/08/2026")
+        st.title(f"🍽️ {NOME_EVENTO}")
+        st.caption(f"📅 Data Evento: **{DATA_EVENTO}**")
     with col_head2:
         st.write(f"👤 **{st.session_state.operatore}**")
         if st.button("Esci / Logout"):
@@ -97,11 +112,11 @@ else:
         with col1:
             cognome = st.text_input("Cognome *")
             telefono = st.text_input("Telefono / WhatsApp *")
-            adulti = st.number_input("N° Adulti (€60)", min_value=0, value=1, step=1)
+            adulti = st.number_input(f"N° Adulti (€{PREZZO_ADULTO:.0f})", min_value=0, value=1, step=1)
         with col2:
             nome = st.text_input("Nome *")
             email = st.text_input("Email (Opzionale)")
-            bambini = st.number_input("N° Bambini (€25)", min_value=0, value=0, step=1)
+            bambini = st.number_input(f"N° Bambini (€{PREZZO_BAMBINO:.0f})", min_value=0, value=0, step=1)
 
         st.divider()
 
@@ -155,14 +170,15 @@ else:
                         "Operatore": st.session_state.operatore
                     }])
 
-                    # Lettura dati esistenti e aggiunta
-                    df_esistente = conn.read(worksheet="PRENOTAZIONI", ttl=0)
+                    # Lettura dati esistenti e inserimento
+                    df_esistente, nome_foglio = leggi_prenotazioni()
                     df_aggiornato = pd.concat([df_esistente, nuova_riga], ignore_index=True)
                     
-                    # Scrittura su Google Sheets
-                    conn.update(worksheet="PRENOTAZIONI", data=df_aggiornato)
+                    if nome_foglio:
+                        conn.update(worksheet=nome_foglio, data=df_aggiornato)
+                    else:
+                        conn.update(data=df_aggiornato)
 
-                    # Output di successo
                     st.success("✅ Prenotazione registrata con successo!")
                     
                     # Generazione Messaggio WhatsApp
@@ -171,8 +187,8 @@ else:
                         tel_clean = "39" + tel_clean
 
                     msg_wa = (
-                        f"*NUOVA PROLOCO TORRE SAN PATRIZIO*\n"
-                        f"*Ricevuta Prenotazione: CENA IN BIANCO*\n\n"
+                        f"*{NOME_EVENTO} - PROLOCO TORRE SAN PATRIZIO*\n"
+                        f"*Ricevuta Prenotazione*\n\n"
                         f"Gentile *{nome} {cognome}*,\n"
                         f"Confermiamo la prenotazione effettuata presso *{st.session_state.operatore}*.\n\n"
                         f"📌 *Codice:* {cod_fam}\n"
