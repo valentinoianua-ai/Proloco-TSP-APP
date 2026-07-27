@@ -33,23 +33,6 @@ OPERATORI_PIN = {
     "Circolo Villa Zara": "1011"
 }
 
-# Logo SVG della Proloco
-LOGO_SVG = """
-<div style="text-align: center; margin-bottom: 20px;">
-    <svg viewBox="0 0 500 230" style="max-width: 280px; width: 100%; height: auto;" xmlns="http://www.w3.org/2000/svg">
-      <path d="M 50 170 Q 120 40 210 120 L 210 50 Q 210 35 225 35 Q 240 35 240 50 L 240 70 Q 250 70 250 50 Q 250 35 265 35 Q 280 35 280 50 L 280 70 Q 290 70 290 50 Q 290 35 305 35 Q 320 35 320 50 L 320 120 Q 400 40 460 170 Z" fill="none" stroke="#41AD49" stroke-width="12" stroke-linejoin="round" stroke-linecap="round"/>
-      <line x1="233" y1="52" x2="233" y2="65" stroke="#41AD49" stroke-width="8" stroke-linecap="round" />
-      <line x1="265" y1="52" x2="265" y2="65" stroke="#41AD49" stroke-width="8" stroke-linecap="round" />
-      <line x1="297" y1="52" x2="297" y2="65" stroke="#41AD49" stroke-width="8" stroke-linecap="round" />
-      <rect x="215" y="90" width="100" height="50" rx="8" fill="none" stroke="#41AD49" stroke-width="10"/>
-      <circle cx="265" cy="115" r="10" fill="none" stroke="#41AD49" stroke-width="8"/>
-      <path d="M 205 170 L 218 135 Q 265 130 312 135 L 325 170" fill="none" stroke="#41AD49" stroke-width="10" stroke-linejoin="round"/>
-      <path d="M 255 170 L 255 152 Q 265 145 275 152 L 275 170 Z" fill="none" stroke="#41AD49" stroke-width="8"/>
-      <line x1="45" y1="170" x2="465" y2="170" stroke="#41AD49" stroke-width="12" stroke-linecap="round"/>
-    </svg>
-</div>
-"""
-
 # Connessione a Google Sheets
 conn = st.connection("gsheets", type=GSheetsConnection)
 
@@ -60,8 +43,12 @@ if "logged_in" not in st.session_state:
 
 # --- SCHERMATA DI LOGIN ---
 if not st.session_state.logged_in:
-    st.markdown(LOGO_SVG, unsafe_allow_html=True)
-    st.markdown("<h2 style='text-align: center; color: #198754; font-weight: bold;'>Nuova Proloco Torre San Patrizio</h2>", unsafe_allow_html=True)
+    # Mostra l'immagine del logo centrata
+    col_logo1, col_logo2, col_logo3 = st.columns([1, 2, 1])
+    with col_logo2:
+        st.image("logo.png", use_container_width=True)
+
+    st.markdown("<h2 style='text-align: center; color: #41AD49; font-weight: bold;'>Nuova Proloco Torre San Patrizio</h2>", unsafe_allow_html=True)
     st.markdown("<h4 style='text-align: center; color: #6c757d;'>Cassa & Prenotazioni Cene</h4>", unsafe_allow_html=True)
     st.write("")
     
