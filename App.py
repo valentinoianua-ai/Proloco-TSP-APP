@@ -16,54 +16,26 @@ st.set_page_config(
 # Connessione a Google Sheets
 conn = st.connection("gsheets", type=GSheetsConnection)
 
-# --- LETTURA DINAMICA CONFIGURAZIONE DAL GOOGLE SHEET ---
-@st.cache_data(ttl=5)  # Rinfresca i dati ogni 5 secondi se cambi il foglio Google
-def carica_configurazione():
-    try:
-        df_cfg = conn.read(worksheet="CONFIG", ttl=0)
-        # Converte il foglio CONFIG (colonne Parametro e Valore) in un dizionario
-        config_dict = dict(zip(df_cfg.iloc[:, 0].astype(str).str.strip(), df_cfg.iloc[:, 1]))
-        
-        # Estrazione Operatori (se presenti nella colonna 'Operatori' o letti dal foglio)
-        operatori_list = df_cfg['Operatori'].dropna().tolist() if 'Operatori' in df_cfg.columns else []
-        
-        return config_dict, operatori_list
-    except Exception:
-        return {}, []
+# Costanti di Configurazione
+PREZZO_ADULTO = 60
+PREZZO_BAMBINO = 25
+CAPARRA_ADULTO = 30
+CAPARRA_BAMBINO = 15
 
-config, lista_operatori_sheet = carica_configurazione()
-
-# Valori Dinamici con Fallback (se il foglio fallisce usa i default)
-NOME_EVENTO = str(config.get("Nome Evento", "CENA IN BIANCO")).upper()
-DATA_EVENTO = str(config.get("Data evento", "06/08/2026"))
-PREZZO_ADULTO = float(config.get("Prezzo adulto", 60))
-PREZZO_BAMBINO = float(config.get("Prezzo bambino", 25))
-CAPARRA_ADULTO = float(config.get("Caparra per persona adulta", 30))
-CAPARRA_BAMBINO = float(config.get("Caparra per persona bambino", 15))
-
-# Elenco Operatori predefinito (se non letto dal foglio)
-OPERATORI_DEFAULT = [
+# Dizionario Operatori
+OPERATORI = [
     "Alimentari Ribichini Coal", "Alimentari Villa Zara", "Proloco TSP",
     "Luigi Croceri", "Andrea Mazzoni", "Valentino Ianua'", "Valentino Seri",
     "Marco Monti", "Bar La Torre", "Bar Antonia", "Circolo Villa Zara",
     "Alessandro Marinelli", "Gianfilippo Pennesi", "Paolo Coriolani"
 ]
 
-LISTA_OPERATORI = lista_operatori_sheet if lista_operatori_sheet else OPERATORI_DEFAULT
-
-# Funzione Helper per leggere le prenotazioni
-def leggi_prenotazioni():
-    try:
-        return conn.read(worksheet="PRENOTAZIONI", ttl=0), "PRENOTAZIONI"
-    except Exception:
-        return conn.read(ttl=0), None
-
-# Gestione Stato della Sessione (Login)
+# Gestione Sessione Login
 if "logged_in" not in st.session_state:
     st.session_state.logged_in = False
     st.session_state.operatore = ""
 
-# --- SCHERMATA DI LOGIN ---
+# --- LOGIN ---
 if not st.session_state.logged_in:
     if os.path.exists("logo.png"):
         col_logo1, col_logo2, col_logo3 = st.columns([1, 2, 1])
@@ -75,27 +47,26 @@ if not st.session_state.logged_in:
     st.write("")
     
     with st.form("login_form"):
-        operatore_sel = st.selectbox("Seleziona Operatore / Esercente", [""] + LISTA_OPERATORI)
-        pin_sel = st.text_input("PIN di Accesso (Es. 1234)", type="password")
+        operatore_sel = st.selectbox("Seleziona Operatore / Esercente", [""] + OPERATORI)
+        pin_sel = st.text_input("PIN di Accesso", type="password")
         btn_login = st.form_submit_button("🔒 Accedi alla Cassa", use_container_width=True)
         
         if btn_login:
             if not operatore_sel:
                 st.error("Seleziona un operatore prima di continuare.")
             elif not pin_sel:
-                st.error("Inserisci il PIN di accesso.")
+                st.error("Inserisci il PIN.")
             else:
                 st.session_state.logged_in = True
                 st.session_state.operatore = operatore_sel
                 st.rerun()
 
-# --- SCHERMATA PRINCIPALE (GESTIONE PRENOTAZIONI) ---
+# --- CASSA PRENOTAZIONI ---
 else:
-    # Header Dinamico
     col_head1, col_head2 = st.columns([3, 1])
     with col_head1:
-        st.title(f"🍽️ {NOME_EVENTO}")
-        st.caption(f"📅 Data Evento: **{DATA_EVENTO}**")
+        st.title("🍽️ CENA IN BIANCO")
+        st.caption("📅 Data Evento: 06/08/2026")
     with col_head2:
         st.write(f"👤 **{st.session_state.operatore}**")
         if st.button("Esci / Logout"):
@@ -104,7 +75,6 @@ else:
             st.rerun()
 
     st.divider()
-
     st.subheader("✍️ Nuova Prenotazione")
 
     with st.form("prenotazione_form", clear_on_submit=True):
@@ -112,15 +82,14 @@ else:
         with col1:
             cognome = st.text_input("Cognome *")
             telefono = st.text_input("Telefono / WhatsApp *")
-            adulti = st.number_input(f"N° Adulti (€{PREZZO_ADULTO:.0f})", min_value=0, value=1, step=1)
+            adulti = st.number_input(f"N° Adulti (€{PREZZO_ADULTO})", min_value=0, value=1, step=1)
         with col2:
             nome = st.text_input("Nome *")
             email = st.text_input("Email (Opzionale)")
-            bambini = st.number_input(f"N° Bambini (€{PREZZO_BAMBINO:.0f})", min_value=0, value=0, step=1)
+            bambini = st.number_input(f"N° Bambini (€{PREZZO_BAMBINO})", min_value=0, value=0, step=1)
 
         st.divider()
 
-        # Calcolo automatico della caparra consigliata
         caparra_suggerita = (adulti * CAPARRA_ADULTO) + (bambini * CAPARRA_BAMBINO)
         
         col3, col4 = st.columns(2)
@@ -137,10 +106,9 @@ else:
 
         if btn_salva:
             if not cognome or not nome or not telefono or not blocchetto:
-                st.error("Compila tutti i campi obbligatori marcati con (*).")
+                st.error("Compila tutti i campi obbligatori (*).")
             else:
                 try:
-                    # Elaborazione dati
                     cod_fam = "FAM-" + str(uuid.uuid4())[:5].upper()
                     richiesti = adulti + bambini
                     caparra_dovuta = (adulti * CAPARRA_ADULTO) + (bambini * CAPARRA_BAMBINO)
@@ -148,17 +116,17 @@ else:
                     saldo = costo_totale - caparra_versata
                     data_ora = datetime.now().strftime("%d/%m/%Y %H:%M:%S")
 
-                    # Creazione DataFrame per inserimento
+                    # Mappatura esatta delle colonne del tuo foglio Google PRENOTAZIONI
                     nuova_riga = pd.DataFrame([{
-                        "CodFam": cod_fam,
-                        "ID": "",
+                        "Cod.Fam.": cod_fam,
+                        "N°": "",
                         "Data": data_ora,
                         "Cognome": cognome,
                         "Nome": nome,
                         "Telefono": telefono,
                         "Adulti": adulti,
                         "Bambini": bambini,
-                        "Totale": richiesti,
+                        "Persone": richiesti,
                         "Caparra Dovuta": caparra_dovuta,
                         "Caparra Versata": caparra_versata,
                         "Saldo": saldo,
@@ -166,28 +134,23 @@ else:
                         "Tavolo": "Da assegnare",
                         "Stato": "Confermata",
                         "Note": note,
-                        "Blocchetto": blocchetto,
+                        "N°.Biglietto": blocchetto,
                         "Operatore": st.session_state.operatore
                     }])
 
-                    # Lettura dati esistenti e inserimento
-                    df_esistente, nome_foglio = leggi_prenotazioni()
+                    # Lettura e Scrittura sulla scheda PRENOTAZIONI
+                    df_esistente = conn.read(worksheet="PRENOTAZIONI", ttl=0)
                     df_aggiornato = pd.concat([df_esistente, nuova_riga], ignore_index=True)
-                    
-                    if nome_foglio:
-                        conn.update(worksheet=nome_foglio, data=df_aggiornato)
-                    else:
-                        conn.update(data=df_aggiornato)
+                    conn.update(worksheet="PRENOTAZIONI", data=df_aggiornato)
 
                     st.success("✅ Prenotazione registrata con successo!")
                     
-                    # Generazione Messaggio WhatsApp
                     tel_clean = ''.join(filter(str.isdigit, telefono))
                     if len(tel_clean) == 10:
                         tel_clean = "39" + tel_clean
 
                     msg_wa = (
-                        f"*{NOME_EVENTO} - PROLOCO TORRE SAN PATRIZIO*\n"
+                        f"*NUOVA PROLOCO TORRE SAN PATRIZIO*\n"
                         f"*Ricevuta Prenotazione*\n\n"
                         f"Gentile *{nome} {cognome}*,\n"
                         f"Confermiamo la prenotazione effettuata presso *{st.session_state.operatore}*.\n\n"
