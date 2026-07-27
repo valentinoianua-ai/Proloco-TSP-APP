@@ -36,7 +36,7 @@ LISTA_OPERATORI = [
 conn = st.connection("gsheets", type=GSheetsConnection)
 
 # Gestione Stato della Sessione (Login)
-if "logged_in" not in st.state_dict():
+if "logged_in" not in st.session_state:
     st.session_state.logged_in = False
     st.session_state.operatore = ""
 
