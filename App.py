@@ -4,6 +4,7 @@ import pandas as pd
 from datetime import datetime
 import uuid
 import urllib.parse
+import os
 
 # Configurazione Pagina
 st.set_page_config(
@@ -46,10 +47,11 @@ if "logged_in" not in st.session_state:
 
 # --- SCHERMATA DI LOGIN ---
 if not st.session_state.logged_in:
-    # Mostra l'immagine del logo centrata
-    col_logo1, col_logo2, col_logo3 = st.columns([1, 2, 1])
-    with col_logo2:
-        st.image("logo.png", use_container_width=True)
+    # Mostra l'immagine del logo se esiste nella cartella principale
+    if os.path.exists("logo.png"):
+        col_logo1, col_logo2, col_logo3 = st.columns([1, 2, 1])
+        with col_logo2:
+            st.image("logo.png", use_container_width=True)
 
     st.markdown("<h2 style='text-align: center; color: #41AD49; font-weight: bold;'>Nuova Proloco Torre San Patrizio</h2>", unsafe_allow_html=True)
     st.markdown("<h4 style='text-align: center; color: #6c757d;'>Cassa & Prenotazioni Cene</h4>", unsafe_allow_html=True)
