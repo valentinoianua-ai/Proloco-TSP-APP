@@ -5,25 +5,25 @@ from datetime import datetime
 import uuid
 import urllib.parse
 import warnings
+import os
 
-# Sopprime avvisi inutili di pandas
 warnings.filterwarnings('ignore')
 
 # ==========================================
-# 1. CONFIGURAZIONE PAGINA (Ottimizzata Mobile)
+# 1. CONFIGURAZIONE PAGINA
 # ==========================================
 st.set_page_config(
     page_title="Gestione Cene Proloco",
-    page_icon="🍷",
-    layout="centered", # 'centered' è meglio per smartphone
+    page_icon="",
+    layout="centered",
     initial_sidebar_state="collapsed"
 )
 
-# CSS personalizzato per rendere l'app più "app-like" su smartphone
+# CSS per mobile
 st.markdown("""
     <style>
     .stTextInput > div > div > input, .stNumberInput > div > div > input {
-        font-size: 16px !important; /* Previene lo zoom automatico su iOS */
+        font-size: 16px !important;
     }
     .stButton > button {
         width: 100%;
@@ -42,16 +42,22 @@ st.markdown("""
 """, unsafe_allow_html=True)
 
 # ==========================================
-# 2. CONNESSIONE E CARICAMENTO DINAMICO CONFIG
+# 2. CONNESSIONE DINAMICA (URL dai secrets)
 # ==========================================
-@st.cache_data(ttl=10)  # Cache di 10 secondi: abbastanza veloce per essere dinamico, evita troppe chiamate API
+@st.cache_data(ttl=10)
 def load_config():
-    conn = st.connection("gsheets", type=GSheetsConnection)
+    # Legge l'URL del foglio dai secrets (o da variabile d'ambiente per test locale)
+    spreadsheet_url = st.secrets.get("connections", {}).get("gsheets", {}).get("spreadsheet")
+    
+    if not spreadsheet_url:
+        # Fallback per test locale
+        spreadsheet_url = os.getenv("GOOGLE_SHEET_URL", "https://docs.google.com/spreadsheets/d/1OYaACNDPfz1TSaKtC1lHNVPKhFH053CR5937zQCLJAs/edit")
+    
+    conn = st.connection("gsheets", type=GSheetsConnection, spreadsheet=spreadsheet_url)
+    
     try:
-        # Legge tutto il foglio CONFIG senza header
         df_raw = conn.read(worksheet="CONFIG", header=None, ttl=10)
         
-        # Crea un dizionario ignorando le righe vuote
         config_dict = {}
         for _, row in df_raw.iterrows():
             key = str(row[0]).strip().lower() if pd.notna(row[0]) else ""
@@ -59,7 +65,6 @@ def load_config():
             if key and key != "nan":
                 config_dict[key] = val
 
-        # Estrazione parametri con fallback di sicurezza
         nome_evento = str(config_dict.get("nome evento", "CENA IN BIANCO")).upper()
         prezzo_adulto = float(str(config_dict.get("prezzo adulto", 60)).replace(',', '.'))
         prezzo_bambino = float(str(config_dict.get("prezzo bambino", 25)).replace(',', '.'))
@@ -67,11 +72,9 @@ def load_config():
         caparra_bambino = float(str(config_dict.get("caparra per persona bambino", 15)).replace(',', '.'))
         posti_totali = int(str(config_dict.get("posti totali sala", 80)).replace(',', '.'))
         
-        # Gestione Data
         raw_data = config_dict.get("data evento", "01/01/2026")
         data_evento = raw_data.strftime("%d/%m/%Y") if isinstance(raw_data, datetime) else str(raw_data)
 
-        # Estrazione Operatori (cerca la riga che contiene "operatori" e prende tutto ciò che segue)
         dict_operatori = {}
         op_indices = df_raw[df_raw[0].str.lower().str.contains("operatori", na=False)].index
         if len(op_indices) > 0:
@@ -79,7 +82,6 @@ def load_config():
             df_ops = df_raw.iloc[start_idx:].dropna(subset=[0])
             for _, row in df_ops.iterrows():
                 op_name = str(row[0]).strip()
-                # Se c'è un PIN nella colonna 1, lo usa, altrimenti imposta stringa vuota (login senza PIN)
                 pin_val = str(row[1]).strip() if pd.notna(row[1]) else ""
                 if op_name and op_name.lower() != "nan":
                     dict_operatori[op_name] = pin_val
@@ -98,7 +100,6 @@ def load_config():
         st.error(f"Errore critico nel caricamento del foglio CONFIG: {e}")
         st.stop()
 
-# Caricamento iniziale
 CONFIG = load_config()
 
 # ==========================================
